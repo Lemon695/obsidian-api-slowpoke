@@ -87,54 +87,55 @@ export default class APITesterPlugin extends Plugin {
 			await vault.createFolder(folderPath);
 		}
 
-		const fileName = `${folderPath}/${request.name}-${new Date().toISOString()}.md`;
+		const safeName = request.name.replace(/[\\/:]/g, '-');
+		const safeTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+		const fileName = `${folderPath}/${safeName}-${safeTimestamp}.md`;
 		const content = this.generateMarkdown(request);
 
 		await vault.create(fileName, content);
 	}
 
 	private generateMarkdown(request: APIRequest): string {
+		const timestamp = new Date().toLocaleString();
+		const responseSize = request.responseSize || 0;
+
 		let content = `## API Request: ${request.name}
 
-### Basic Information
+### 基本信息
 - URL: ${request.url}
 - Method: ${request.method}
-- Timestamp: ${new Date().toLocaleString()}
-`;
+- 时间: ${timestamp}
 
-		// 根据保存配置生成内容
-		const saveConfig = request.saveConfig || {
-			saveHeaders: true,
-			saveBody: true,
-			saveResponse: true
-		};
-
-		if (saveConfig.saveHeaders && request.headers) {
-			content += `\n### Request Headers
+### 请求头
 \`\`\`json
 ${JSON.stringify(request.headers, null, 2)}
-\`\`\``;
-		}
-
-		if (saveConfig.saveBody && request.body) {
-			content += `\n### Request Body
-\`\`\`json
-${JSON.stringify(request.body, null, 2)}
-\`\`\``;
-		}
-
-		if (saveConfig.saveResponse && request.response) {
-			content += `\n### Response
-\`\`\`json
-${JSON.stringify(request.response, null, 2)}
 \`\`\`
 
-### Statistics
-- Status Code: ${request.response.status}
-- Response Time: ${request.responseTime}ms`;
-		}
+### 请求体
+\`\`\`json
+${JSON.stringify(request.body, null, 2)}
+\`\`\`
+
+### 响应数据
+\`\`\`json
+${JSON.stringify(request.response?.data, null, 2)}
+\`\`\`
+
+### 统计信息
+- 响应时间: ${request.responseTime}ms
+- 状态码: ${request.response?.status}
+- 数据大小: ${this.formatBytes(responseSize)}
+`;
 
 		return content;
+	}
+
+	private formatBytes(bytes: number): string {
+		if (bytes === 0) return '0B';
+		const k = 1024;
+		const sizes = ['B', 'KB', 'MB', 'GB'];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + sizes[i];
 	}
 
 	async loadSettings() {

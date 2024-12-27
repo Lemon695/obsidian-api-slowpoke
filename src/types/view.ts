@@ -1,11 +1,12 @@
-import {ItemView, WorkspaceLeaf} from 'obsidian';
+import {ItemView, Notice, WorkspaceLeaf} from 'obsidian';
 import APITesterPlugin from '../main';
-import {HeaderConfig} from "./types";
+import {APIRequest, HeaderConfig} from "./types";
 
 export const VIEW_TYPE_API_TESTER = 'api-tester-view';
 
 export class APITesterView extends ItemView {
 	plugin: APITesterPlugin;
+	private lastRequestData: APIRequest | null = null;  // 添加属性保存最后一次请求的数据
 
 	constructor(leaf: WorkspaceLeaf, plugin: APITesterPlugin) {
 		super(leaf);
@@ -161,6 +162,22 @@ export class APITesterView extends ItemView {
 		responseContainer.createEl('h5', {text: 'Response'});
 		const responseArea = responseContainer.createEl('pre');
 		responseArea.addClass('api-tester-response');
+
+		// Statistics area
+		const statsContainer = container.createDiv('stats-container');
+		statsContainer.createEl('h5', {text: 'Statistics'});
+		const statsArea = statsContainer.createEl('div');
+		statsArea.addClass('api-tester-stats');
+
+		// 添加保存按钮
+		const saveContainer = container.createDiv('save-container');
+		const saveButton = saveContainer.createEl('button', {
+			text: 'Save Request',
+			cls: 'api-tester-save'
+		});
+		saveButton.addEventListener('click', this.handleSave.bind(this));
+		saveButton.disabled = true;  // 初始时禁用保存按钮
+
 	}
 
 	private addHeaderInputPair(container: HTMLElement) {
@@ -238,11 +255,8 @@ export class APITesterView extends ItemView {
 		const headersTextarea = form.querySelector('.api-tester-headers') as HTMLTextAreaElement;
 		const bodyTextarea = form.querySelector('.api-tester-body') as HTMLTextAreaElement;
 		const responseArea = this.containerEl.querySelector('.api-tester-response') as HTMLPreElement;
-
-		// 获取保存配置
-		const saveHeaders = (form.querySelector('.api-tester-save-headers') as HTMLInputElement).checked;
-		const saveBody = (form.querySelector('.api-tester-save-body') as HTMLInputElement).checked;
-		const saveResponse = (form.querySelector('.api-tester-save-response') as HTMLInputElement).checked;
+		const statsArea = this.containerEl.querySelector('.api-tester-stats') as HTMLDivElement;
+		const saveButton = this.containerEl.querySelector('.api-tester-save') as HTMLButtonElement;
 
 		try {
 			const headers = headersTextarea.value ? JSON.parse(headersTextarea.value) : {};
@@ -257,9 +271,10 @@ export class APITesterView extends ItemView {
 
 			const responseTime = Date.now() - startTime;
 			const responseData = await response.json();
+			const responseSize = new TextEncoder().encode(JSON.stringify(responseData)).length;
 
-			// 保存请求
-			this.plugin.saveRequest({
+			// 保存请求数据
+			this.lastRequestData = {
 				name: new URL(urlInput.value).pathname.split('/').pop() || 'request',
 				url: urlInput.value,
 				method: methodSelect.value,
@@ -271,17 +286,49 @@ export class APITesterView extends ItemView {
 				},
 				responseTime: responseTime,
 				timestamp: new Date(),
-				saveConfig: {
-					saveHeaders,
-					saveBody,
-					saveResponse
-				}
-			});
+				responseSize: responseSize
+			};
 
 			// 显示响应
 			responseArea.textContent = JSON.stringify(responseData, null, 2);
+
+			// 显示统计信息
+			statsArea.innerHTML = `
+                <div>响应时间: ${responseTime}ms</div>
+                <div>状态码: ${response.status}</div>
+                <div>数据大小: ${this.formatBytes(responseSize)}</div>
+            `;
+
+			// 启用保存按钮
+			saveButton.disabled = false;
+
 		} catch (error) {
 			responseArea.textContent = `Error: ${error.message}`;
+			statsArea.innerHTML = '';
+			saveButton.disabled = true;
+			this.lastRequestData = null;
 		}
 	}
+
+	private formatBytes(bytes: number): string {
+		if (bytes === 0) return '0B';
+		const k = 1024;
+		const sizes = ['B', 'KB', 'MB', 'GB'];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + sizes[i];
+	}
+
+	private async handleSave() {
+		if (!this.lastRequestData) return;
+
+		try {
+			await this.plugin.saveRequest(this.lastRequestData);
+			// 可以添加保存成功的提示
+			new Notice('Request saved successfully');
+		} catch (error) {
+			// 错误处理
+			new Notice('Failed to save request: ' + error.message);
+		}
+	}
+
 }

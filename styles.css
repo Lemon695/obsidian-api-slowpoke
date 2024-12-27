@@ -336,3 +336,38 @@
 .hidden {
 	display: none;
 }
+
+
+/* 接口响应统计 */
+.stats-container {
+	margin: 15px 0;
+	padding: 10px;
+	background-color: var(--background-secondary);
+	border-radius: 4px;
+}
+
+.api-tester-stats {
+	font-family: monospace;
+	line-height: 1.5;
+}
+
+.save-container {
+	margin: 15px 0;
+	text-align: right;
+}
+
+.api-tester-save {
+	background-color: var(--interactive-success);
+	color: var(--text-on-accent);
+	padding: 8px 16px;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.api-tester-save:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+

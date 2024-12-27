@@ -1,6 +1,7 @@
 export interface HeaderConfig {
 	'Content-Type'?: string;
 	'Accept'?: string;
+
 	[key: string]: string | undefined;
 }
 
@@ -15,6 +16,7 @@ export interface APIRequest {
 		data: any;
 	};
 	responseTime?: number;
+	responseSize?: number;
 	timestamp: Date;
 	saveConfig?: {
 		saveHeaders: boolean;
